@@ -46,6 +46,7 @@ async function run() {
         res.send({token})
     })
 
+// user related apis
 
     app.post('/api/v1/users',async(req,res)=>{
        const user = req.body
@@ -57,7 +58,22 @@ async function run() {
        const result = await usersCollection.insertOne(user)
        res.send(result)
     })
-
+    app.get('/api/v1/users',async(req,res)=>{
+       const email = req.query.email
+       let query ={} 
+      if(email){
+        query = {email: email} 
+      }
+      const result = await usersCollection.find(query).toArray()
+      res.send(result)
+      //  const existingUser = await usersCollection.findOne(query)
+      //  if(existingUser){
+      //   return res.send({message: "user already exist", insertedId: null})
+      //  }
+      //  const result = await usersCollection.insertOne(user)
+      //  res.send(result)
+    })
+    
 
 
 
