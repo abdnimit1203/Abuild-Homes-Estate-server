@@ -34,6 +34,7 @@ async function run() {
     // all collections
     const usersCollection = client.db("abuildhomesDB").collection("users");
     const propertiesCollection = client.db("abuildhomesDB").collection("properties");
+    const reviewsCollection = client.db("abuildhomesDB").collection("reviews");
 
     // jwt api
     app.post("/jwt", async (req, res) => {
@@ -99,6 +100,32 @@ async function run() {
       const result = await propertiesCollection.insertOne(property);
       res.send(result);
     });
+
+
+    //review related api
+
+    app.get("/api/v1/reviews", async (req, res) => {
+      const id = req.query.id;
+      const email = req.query.email;
+      let query = {}
+      if(id){
+        query= {propertyID: id}
+      }
+      if(email){
+        query= {userEmail: email}
+      }
+
+      const result = await reviewsCollection.find(query).toArray();
+      res.send(result);
+    });
+    app.post("/api/v1/reviews", async (req, res) => {
+      const review = req.body;
+      const result = await reviewsCollection.insertOne(review);
+      res.send(result);
+    });
+
+
+
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
