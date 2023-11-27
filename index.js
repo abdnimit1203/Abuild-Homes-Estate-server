@@ -30,11 +30,15 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
 
-
     // all collections
     const usersCollection = client.db("abuildhomesDB").collection("users");
-    const propertiesCollection = client.db("abuildhomesDB").collection("properties");
+    const propertiesCollection = client
+      .db("abuildhomesDB")
+      .collection("properties");
     const reviewsCollection = client.db("abuildhomesDB").collection("reviews");
+    const wishlistsCollection = client
+      .db("abuildhomesDB")
+      .collection("wishlists");
 
     // jwt api
     app.post("/jwt", async (req, res) => {
@@ -80,15 +84,15 @@ async function run() {
       if (email) {
         query = { agentEmail: email };
       }
-     
+
       const propertiesData = await propertiesCollection.find(query).toArray();
-      const countData = await propertiesCollection.countDocuments(query)
-      res.send({propertiesData,countData});
+      const countData = await propertiesCollection.countDocuments(query);
+      res.send({ propertiesData, countData });
     });
     //id wise property data get
     app.get("/api/v1/properties/:id", async (req, res) => {
       const id = req.params.id;
-      const query= {_id: new ObjectId(id)}
+      const query = { _id: new ObjectId(id) };
       const result = await propertiesCollection.findOne(query);
       res.send(result);
     });
@@ -101,31 +105,47 @@ async function run() {
       res.send(result);
     });
 
+    // wishlist realated data
+    app.post("/api/v1/wishlists", async (req, res) => {
+      const wishlist = req.body;
+      const result = await wishlistsCollection.insertOne(wishlist);
+      res.send(result);
+    });
+    app.get("/api/v1/wishlists", async (req, res) => {
+      const email = req.query.email;
+      let query = {};
+      if (email) {
+        query = { userEmail: email };
+      }
+      const result = await wishlistsCollection.find(query).toArray();
+      res.send(result);
+    });
 
     //review related api
 
     app.get("/api/v1/reviews", async (req, res) => {
       const id = req.query.id;
       const email = req.query.email;
-      let query = {}
-      if(id){
-        query= {propertyID: id}
+      let query = {};
+      if (id) {
+        query = { propertyID: id };
       }
-      if(email){
-        query= {userEmail: email}
+      if (email) {
+        query = { userEmail: email };
       }
 
-      const result = await reviewsCollection.find(query).toArray();
+      const result = await reviewsCollection
+        .find(query)
+        .sort({ reviewTime: -1 })
+        .toArray();
       res.send(result);
     });
+
     app.post("/api/v1/reviews", async (req, res) => {
       const review = req.body;
       const result = await reviewsCollection.insertOne(review);
       res.send(result);
     });
-
-
-
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
