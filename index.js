@@ -2,7 +2,7 @@ const express = require("express");
 const app = express();
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
 const port = process.env.PORT || 3000;
 const reviews = require("./reviews.json");
@@ -83,6 +83,13 @@ async function run() {
       const propertiesData = await propertiesCollection.find(query).toArray();
       const countData = await propertiesCollection.countDocuments(query)
       res.send({propertiesData,countData});
+    });
+    //id wise property data get
+    app.get("/api/v1/properties/:id", async (req, res) => {
+      const id = req.params.id;
+      const query= {_id: new ObjectId(id)}
+      const result = await propertiesCollection.findOne(query);
+      res.send(result);
     });
 
     app.post("/api/v1/properties", async (req, res) => {
