@@ -70,6 +70,16 @@ async function run() {
       const result = await usersCollection.find(query).toArray();
       res.send(result);
     });
+    // single user Data role get
+    app.get("/api/v1/users/role", async (req, res) => {
+      const email = req.query.email;
+      let query = {}
+      if (email) {
+        query = { email: email }
+      }
+      const result = await usersCollection.findOne(query);
+      res.send(result?.role);
+    });
 
     // Property related apis
 
@@ -118,6 +128,13 @@ async function run() {
         query = { userEmail: email };
       }
       const result = await wishlistsCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    app.delete("/api/v1/wishlists/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = {_id : new ObjectId(id)}
+      const result = await wishlistsCollection.deleteOne(query);
       res.send(result);
     });
 
