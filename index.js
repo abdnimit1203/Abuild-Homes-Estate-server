@@ -39,6 +39,9 @@ async function run() {
     const wishlistsCollection = client
       .db("abuildhomesDB")
       .collection("wishlists");
+    const offersCollection = client
+      .db("abuildhomesDB")
+      .collection("offers");
 
     // jwt api
     app.post("/jwt", async (req, res) => {
@@ -108,10 +111,15 @@ async function run() {
     });
 
     app.post("/api/v1/properties", async (req, res) => {
-      const status = req.body;
-      const query = { status: property.status };
-
+      const property = req.body;
+     
       const result = await propertiesCollection.insertOne(property);
+      res.send(result);
+    });
+    app.delete("/api/v1/properties/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = {_id : new ObjectId(id)}
+      const result = await propertiesCollection.deleteOne(query);
       res.send(result);
     });
 
@@ -121,6 +129,7 @@ async function run() {
       const result = await wishlistsCollection.insertOne(wishlist);
       res.send(result);
     });
+
     app.get("/api/v1/wishlists", async (req, res) => {
       const email = req.query.email;
       let query = {};
@@ -128,6 +137,13 @@ async function run() {
         query = { userEmail: email };
       }
       const result = await wishlistsCollection.find(query).toArray();
+      res.send(result);
+    });
+    //id wise property data get
+    app.get("/api/v1/wishlists/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await wishlistsCollection.findOne(query);
       res.send(result);
     });
 
@@ -163,6 +179,35 @@ async function run() {
       const result = await reviewsCollection.insertOne(review);
       res.send(result);
     });
+
+    // OFFER realated data
+    app.post("/api/v1/offers", async (req, res) => {
+      const offer = req.body;
+      const result = await offersCollection.insertOne(offer);
+      res.send(result);
+    });
+    app.get("/api/v1/offers", async (req, res) => {
+      const offer = req.body;
+      const id = req.query.id;
+      const agentEmail = req.query.agentEmail;
+      const buyerEmail = req.query.buyerEmail;
+      let query = {};
+      if (id) {
+        query = { propertyID: id };
+      }
+      if (agentEmail) {
+        query = { agentEmail: agentEmail };
+      }
+      if (buyerEmail) {
+        query = { buyerEmail: buyerEmail };
+      }
+
+      const result = await offersCollection.find(query).toArray();
+      res.send(result);
+    });
+
+
+
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
