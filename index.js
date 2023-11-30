@@ -4,7 +4,7 @@ const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const port = process.env.PORT || 3000;
 const reviews = require("./reviews.json");
 
@@ -41,7 +41,9 @@ async function run() {
       .db("abuildhomesDB")
       .collection("wishlists");
     const offersCollection = client.db("abuildhomesDB").collection("offers");
-    const paymentsCollection = client.db("abuildhomesDB").collection("payments");
+    const paymentsCollection = client
+      .db("abuildhomesDB")
+      .collection("payments");
 
     // jwt api
     app.post("/jwt", async (req, res) => {
@@ -181,7 +183,7 @@ async function run() {
     });
     app.delete("/api/v1/reviews/:id", async (req, res) => {
       const id = req.params.id;
-      const query = {_id: new ObjectId(id)}
+      const query = { _id: new ObjectId(id) };
       const result = await reviewsCollection.deleteOne(query);
       res.send(result);
     });
@@ -212,9 +214,6 @@ async function run() {
       res.send(result);
     });
 
-
-
-
     //id wise offered get
     app.get("/api/v1/offers/:id", async (req, res) => {
       const id = req.params.id;
@@ -223,54 +222,86 @@ async function run() {
       const result = await offersCollection.findOne(query);
       res.send(result);
     });
+    // offer accept vs reject handling
+    app.get("/api/v1/accepted-offer", async (req, res) => {
+      const title = req.query.title;
+      const id = req.query.id;
+
+      const filter1= {_id : new ObjectId(id)}
+      const filter2 = {
+        $and: [{ propertyTitle: title }, { status: "pending" }],
+      };
+      const updateDoc1 = {
+        $set: { status: "accepted" },
+      };
+      const updateDoc2 = {
+        $set: { status: "rejected" },
+      };
+      const result1 = await offersCollection.updateOne(filter1,updateDoc1);
+      const result2 = await offersCollection.updateMany(filter2,updateDoc2);
+      res.send({result1,result2});
+    });
+    app.get("/api/v1/rejected-offer", async (req, res) => {
+      
+      const id = req.query.id;
+
+      const filter= {_id : new ObjectId(id)}
+      
+      const updateDoc = {
+        $set: { status: "rejected" },
+      };
+     
+      const result = await offersCollection.updateOne(filter,updateDoc);
+      res.send(result)
+      
+    });
 
     //payments realated
     app.get("/api/v1/payments", async (req, res) => {
-     
       const agentEmail = req.query.agentEmail;
       let query = {};
-    
+
       if (agentEmail) {
         query = { agentEmail: agentEmail };
       }
-  
+
       const result = await paymentsCollection.find(query).toArray();
       res.send(result);
-    })
+    });
     app.post("/api/v1/payments", async (req, res) => {
       const payments = req.body;
       const result = await paymentsCollection.insertOne(payments);
       const options = { upsert: true };
-      const filter = {_id: new ObjectId(payments.offersId)}
+      const filter = { _id: new ObjectId(payments.offersId) };
       const updateDoc = {
         $set: {
           status: "bought",
-          transacionId : payments.transactionId
-        }
-      }
-    const updateStatus =  await offersCollection.updateOne(filter,updateDoc,options)
-      res.send({ result, updateStatus});
+          transacionId: payments.transactionId,
+        },
+      };
+      const updateStatus = await offersCollection.updateOne(
+        filter,
+        updateDoc,
+        options
+      );
+      res.send({ result, updateStatus });
     });
 
-      // Stripe payment intent method
-      app.post('/create-payment-intent', async(req,res)=>{
-        const {price} = req.body
-        const amount = parseInt(price*100)
-  
-        const paymentIntent = await stripe.paymentIntents.create({
-          amount: amount,
-          currency: 'usd',
-          payment_method_types: ['card']
-        })
-  
-        res.send({
-          clientSecret: paymentIntent.client_secret
-        })
-  
-      })
-      
+    // Stripe payment intent method
+    app.post("/create-payment-intent", async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
 
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
 
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
