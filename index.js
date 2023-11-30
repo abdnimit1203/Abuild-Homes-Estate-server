@@ -4,6 +4,7 @@ const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 const port = process.env.PORT || 3000;
 const reviews = require("./reviews.json");
 
@@ -39,9 +40,8 @@ async function run() {
     const wishlistsCollection = client
       .db("abuildhomesDB")
       .collection("wishlists");
-    const offersCollection = client
-      .db("abuildhomesDB")
-      .collection("offers");
+    const offersCollection = client.db("abuildhomesDB").collection("offers");
+    const paymentsCollection = client.db("abuildhomesDB").collection("payments");
 
     // jwt api
     app.post("/jwt", async (req, res) => {
@@ -76,9 +76,9 @@ async function run() {
     // single user Data role get
     app.get("/api/v1/users/role", async (req, res) => {
       const email = req.query.email;
-      let query = {}
+      let query = {};
       if (email) {
-        query = { email: email }
+        query = { email: email };
       }
       const result = await usersCollection.findOne(query);
       res.send(result?.role);
@@ -112,13 +112,13 @@ async function run() {
 
     app.post("/api/v1/properties", async (req, res) => {
       const property = req.body;
-     
+
       const result = await propertiesCollection.insertOne(property);
       res.send(result);
     });
     app.delete("/api/v1/properties/:id", async (req, res) => {
       const id = req.params.id;
-      const query = {_id : new ObjectId(id)}
+      const query = { _id: new ObjectId(id) };
       const result = await propertiesCollection.deleteOne(query);
       res.send(result);
     });
@@ -149,7 +149,7 @@ async function run() {
 
     app.delete("/api/v1/wishlists/:id", async (req, res) => {
       const id = req.params.id;
-      const query = {_id : new ObjectId(id)}
+      const query = { _id: new ObjectId(id) };
       const result = await wishlistsCollection.deleteOne(query);
       res.send(result);
     });
@@ -179,6 +179,12 @@ async function run() {
       const result = await reviewsCollection.insertOne(review);
       res.send(result);
     });
+    app.delete("/api/v1/reviews/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id)}
+      const result = await reviewsCollection.deleteOne(query);
+      res.send(result);
+    });
 
     // OFFER realated data
     app.post("/api/v1/offers", async (req, res) => {
@@ -206,6 +212,63 @@ async function run() {
       res.send(result);
     });
 
+
+
+
+    //id wise offered get
+    app.get("/api/v1/offers/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+
+      const result = await offersCollection.findOne(query);
+      res.send(result);
+    });
+
+    //payments realated
+    app.get("/api/v1/payments", async (req, res) => {
+     
+      const agentEmail = req.query.agentEmail;
+      let query = {};
+    
+      if (agentEmail) {
+        query = { agentEmail: agentEmail };
+      }
+  
+      const result = await paymentsCollection.find(query).toArray();
+      res.send(result);
+    })
+    app.post("/api/v1/payments", async (req, res) => {
+      const payments = req.body;
+      const result = await paymentsCollection.insertOne(payments);
+      const options = { upsert: true };
+      const filter = {_id: new ObjectId(payments.offersId)}
+      const updateDoc = {
+        $set: {
+          status: "bought",
+          transacionId : payments.transactionId
+        }
+      }
+    const updateStatus =  await offersCollection.updateOne(filter,updateDoc,options)
+      res.send({ result, updateStatus});
+    });
+
+      // Stripe payment intent method
+      app.post('/create-payment-intent', async(req,res)=>{
+        const {price} = req.body
+        const amount = parseInt(price*100)
+  
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: amount,
+          currency: 'usd',
+          payment_method_types: ['card']
+        })
+  
+        res.send({
+          clientSecret: paymentIntent.client_secret
+        })
+  
+      })
+      
 
 
 
