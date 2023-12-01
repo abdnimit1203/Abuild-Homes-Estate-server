@@ -95,20 +95,11 @@ async function run() {
       const result = await usersCollection.updateOne(filter,updateDoc);
       res.send(result);
     });
-    app.patch("/api/v1/fraud-users", async (req, res) => {
-      const id = req.query.id;
-     
-      const filter = {_id: new ObjectId(id)};
-      const updateDoc = {
-        $set : {role: "fraud"}
-      } 
-      const result = await usersCollection.updateOne(filter,updateDoc);
-      res.send(result);
-    });
+
     app.patch("/api/v1/username", async (req, res) => {
       const email = req.query.email;
       const username = req.query.username;
-     
+      
       const filter = {email: email};
       const updateDoc = {
         $set : {name: username}
@@ -118,13 +109,13 @@ async function run() {
     });
     app.delete("/api/v1/users", async (req, res) => {
       const id = req.query.id;
-     
+      
       const query = {_id: new ObjectId(id)};
-    
+      
       const result = await usersCollection.deleteOne(query);
       res.send(result);
     });
-
+    
     // Property related apis
     
     //all properties + query properties
@@ -138,7 +129,7 @@ async function run() {
       if (email) {
         query = { agentEmail: email };
       }
-
+      
       const propertiesData = await propertiesCollection.find(query).toArray();
       const countData = await propertiesCollection.countDocuments(query);
       res.send({ propertiesData, countData });
@@ -150,7 +141,29 @@ async function run() {
       const result = await propertiesCollection.findOne(query);
       res.send(result);
     });
-
+    //id wise property data update method
+    app.patch("/api/v1/properties/:id", async (req, res) => {
+      const id = req.params.id;
+      const newData = req.body
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set:{
+    
+          propertyImage : newData.propertyImage,
+          propertyTitle : newData.propertyTitle,
+          propertyLocation : newData.propertyLocation,
+          priceRange : newData.priceRange,
+          minPrice : newData.minPrice,
+          maxPrice : newData.maxPrice,
+          agentName : newData.agentName,
+          
+          
+        }
+      }
+      const result = await propertiesCollection.updateOne(filter,updateDoc);
+      res.send(result);
+    });
+    
     app.patch("/api/v1/make-verified", async (req, res) => {
       const id = req.query.id;
       const filter = {_id : new ObjectId(id)}
@@ -171,7 +184,7 @@ async function run() {
     });
     app.post("/api/v1/properties", async (req, res) => {
       const property = req.body;
-
+      
       const result = await propertiesCollection.insertOne(property);
       res.send(result);
     });
@@ -181,7 +194,23 @@ async function run() {
       const result = await propertiesCollection.deleteOne(query);
       res.send(result);
     });
-
+    
+    app.patch("/api/v1/users/fraud", async (req, res) => {
+      const id = req.query.id;
+      const email = req.query.email;
+     
+      const filter1 = {_id: new ObjectId(id)};
+      const filter2 = {agentEmail: email};
+      const updateDoc1 = {
+        $set : {role: "fraud"}
+      } 
+      const updateDoc2 = {
+        $set : {status: "fraud"}
+      } 
+      const result = await usersCollection.updateOne(filter1,updateDoc1);
+      const result2 = await propertiesCollection.updateMany(filter2,updateDoc2);
+      res.send({result,result2});
+    });
     // wishlist realated data
     app.post("/api/v1/wishlists", async (req, res) => {
       const wishlist = req.body;
