@@ -122,6 +122,7 @@ async function run() {
     app.get("/api/v1/properties", async (req, res) => {
       const status = req.query.status;
       const email = req.query.email;
+      const sort = req.query.sort;
       let query = {};
       if (status) {
         query = { status: status };
@@ -129,8 +130,17 @@ async function run() {
       if (email) {
         query = { agentEmail: email };
       }
-      
-      const propertiesData = await propertiesCollection.find(query).toArray();
+      if(sort == "asc"){
+        const propertiesData = await propertiesCollection.find(query).sort({minPrice:1}).toArray();
+      const countData = await propertiesCollection.countDocuments(query);
+      return res.send({ propertiesData, countData });
+      }
+      if(sort == "desc"){
+        const propertiesData = await propertiesCollection.find(query).sort({minPrice:-1}).toArray();
+      const countData = await propertiesCollection.countDocuments(query);
+      return res.send({ propertiesData, countData });
+      }
+      const propertiesData = await propertiesCollection.find(query).sort().toArray();
       const countData = await propertiesCollection.countDocuments(query);
       res.send({ propertiesData, countData });
     });
