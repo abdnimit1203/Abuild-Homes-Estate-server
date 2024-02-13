@@ -55,7 +55,6 @@ async function run() {
     });
 
     // user related apis
-
     app.post("/api/v1/users", async (req, res) => {
       const user = req.body;
       const query = { email: user.email };
