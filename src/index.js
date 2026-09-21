@@ -41,13 +41,24 @@ const allowedOrigins = [
   "https://abuild-homes-estate-client.vercel.app",
 ];
 
+if (process.env.CLIENT_URL) {
+  allowedOrigins.push(process.env.CLIENT_URL.trim().replace(/\/$/, ""));
+}
+
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin || allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== "production") {
+      const isAllowed =
+        !origin ||
+        allowedOrigins.indexOf(origin) !== -1 ||
+        origin.endsWith(".netlify.app") ||
+        origin.endsWith(".vercel.app") ||
+        process.env.NODE_ENV !== "production";
+
+      if (isAllowed) {
         callback(null, true);
       } else {
-        callback(new Error("CORS policy violation: Unauthorized origin"));
+        callback(new Error(`CORS policy violation: Unauthorized origin (${origin})`));
       }
     },
     credentials: true,

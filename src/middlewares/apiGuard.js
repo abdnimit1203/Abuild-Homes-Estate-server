@@ -3,8 +3,8 @@
  * and ensures requests originate from authorized client applications or API consumers.
  */
 function apiGuard(req, res, next) {
-  // Allow root health-check endpoint
-  if (req.path === "/" || req.path === "/reviews") {
+  // Allow OPTIONS preflight and root health-check endpoints
+  if (req.method === "OPTIONS" || req.path === "/" || req.path === "/reviews") {
     return next();
   }
 
