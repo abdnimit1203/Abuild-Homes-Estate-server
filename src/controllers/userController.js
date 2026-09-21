@@ -8,7 +8,10 @@ const { deleteFirebaseUser } = require("../config/firebase");
  */
 async function createUser(req, res, next) {
   try {
-    const user = req.body;
+    const user = { ...req.body };
+    if (user.photoURL && !user.imgUrl) user.imgUrl = user.photoURL;
+    if (user.imgUrl && !user.photoURL) user.photoURL = user.imgUrl;
+
     const existingUser = await User.findOne({ email: user.email });
     if (existingUser) {
       return res.send({ message: "user already exist", insertedId: null });
@@ -97,6 +100,37 @@ async function updateUsername(req, res, next) {
 }
 
 /**
+ * Updates full user profile including name and imgUrl.
+ */
+async function updateUserProfile(req, res, next) {
+  try {
+    const email = req.query.email || req.body.email || req.user?.email;
+    const { name, imgUrl, photoURL } = req.body;
+
+    if (!email) {
+      return res.status(400).send({ message: "User email is required." });
+    }
+
+    const updateFields = {};
+    if (name !== undefined) updateFields.name = name;
+
+    const finalImg = imgUrl || photoURL;
+    if (finalImg !== undefined) {
+      updateFields.imgUrl = finalImg;
+      updateFields.photoURL = finalImg;
+    }
+
+    const result = await User.updateOne(
+      { email },
+      { $set: updateFields }
+    );
+    res.send({ success: true, acknowledged: true, ...result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
  * Deletes user both from Firebase Authentication and MongoDB.
  */
 async function deleteUser(req, res, next) {
@@ -178,6 +212,7 @@ module.exports = {
   getUserRole,
   updateUserRole,
   updateUsername,
+  updateUserProfile,
   deleteUser,
   markUserAsFraud,
 };

@@ -3,6 +3,7 @@ const cors = require("cors");
 const path = require("path");
 const { connectDB } = require("./config/db");
 const errorHandler = require("./middlewares/errorHandler");
+const { apiGuard } = require("./middlewares/apiGuard");
 
 // Controllers needed for top-level root aliases
 const userController = require("./controllers/userController");
@@ -32,9 +33,31 @@ try {
 
 const app = express();
 
-// Middlewares
-app.use(cors());
+// Whitelist configuration for CORS
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "https://abuild-homes-estate-abd.netlify.app",
+  "https://abuild-homes-estate-client.vercel.app",
+];
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== "production") {
+        callback(null, true);
+      } else {
+        callback(new Error("CORS policy violation: Unauthorized origin"));
+      }
+    },
+    credentials: true,
+  })
+);
+
 app.use(express.json());
+
+// Blocker & Privacy Middleware: Blocks direct browser address-bar inspection
+app.use(apiGuard);
 
 // Serverless DB connection middleware (caches connection across warm lambdas)
 app.use(async (req, res, next) => {
@@ -43,7 +66,6 @@ app.use(async (req, res, next) => {
     next();
   } catch (err) {
     console.error("MongoDB connection failed on request:", err.message);
-    // Proceed so health check or unauthenticated routes can still answer if needed
     next();
   }
 });
@@ -61,6 +83,8 @@ app.use("/api/v1/payments", paymentRoutes);
 
 // Direct alias endpoints for complete backwards compatibility
 app.patch("/api/v1/username", userController.updateUsername);
+app.patch("/api/v1/update-profile", userController.updateUserProfile);
+app.patch("/api/v1/users/profile", userController.updateUserProfile);
 app.patch("/api/v1/make-verified", propertyController.makeVerified);
 app.patch("/api/v1/make-rejected", propertyController.makeRejected);
 app.patch("/api/v1/accepted-offer", offerController.acceptOffer);

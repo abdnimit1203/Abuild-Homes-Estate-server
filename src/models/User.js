@@ -18,6 +18,10 @@ const userSchema = new mongoose.Schema(
       enum: ["user", "agent", "admin", "fraud"],
       default: "user",
     },
+    imgUrl: {
+      type: String,
+      default: "",
+    },
     photoURL: {
       type: String,
       default: "",
@@ -32,5 +36,14 @@ const userSchema = new mongoose.Schema(
     strict: false, // Allows backward compatibility with existing document shapes
   }
 );
+
+// Synchronize imgUrl and photoURL before save
+userSchema.pre("save", function () {
+  if (this.imgUrl && !this.photoURL) {
+    this.photoURL = this.imgUrl;
+  } else if (this.photoURL && !this.imgUrl) {
+    this.imgUrl = this.photoURL;
+  }
+});
 
 module.exports = mongoose.models.User || mongoose.model("User", userSchema, "users");

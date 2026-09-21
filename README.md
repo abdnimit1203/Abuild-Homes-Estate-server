@@ -49,6 +49,7 @@ Abuild-Homes-Estate-server/
     │   ├── offerRoutes.js
     │   └── paymentRoutes.js
     └── middlewares/          # Security, auth, and error handlers
+        ├── apiGuard.js       # Blocker preventing direct browser address-bar inspection
         ├── verifyToken.js    # JWT Bearer token authentication
         ├── verifyAdmin.js    # RBAC: Admin-only route guard
         ├── verifyAgent.js    # RBAC: Agent-only route guard
@@ -59,11 +60,13 @@ Abuild-Homes-Estate-server/
 
 ## ⚡ Key Highlights
 
+- **Direct Browser Navigation Guard (`apiGuard`)**: Blocks unauthorized direct browser address-bar inspection (e.g. typing `http://localhost:5000/api/v1/properties` directly into a browser tab), returning `403 Forbidden` unless accessed via authorized client applications or API tokens.
 - **Serverless-Safe Database Connection**: Implements `global.mongoose` connection caching in `src/config/db.js` to eliminate connection leaks across hot/cold serverless lambdas.
 - **Granular Property Location**: Model supports `houseNumber`, `roadNumber`, `division`, `country`, and `continent`, automatically synchronizing and maintaining backward compatibility with the legacy `propertyLocation` string.
+- **User Avatar (`imgUrl`) Synchronization**: Stores hosted HTTPS avatar URLs in MongoDB with bidirectional `photoURL` / `imgUrl` pre-save synchronization.
 - **Robust Role-Based Access Control (RBAC)**: Fine-grained middleware protection (`verifyToken`, `verifyAdmin`, `verifyAgent`) ensuring secure API access.
 - **Flexible Firebase Admin Initialization**: Gracefully parses private keys from environment variables (`FIREBASE_PRIVATE_KEY` with `\n` normalization or Base64 encoded JSON) without requiring insecure credential files in source control.
-- **Backwards Compatible API**: Preserves all legacy endpoint structures (`/jwt`, `/reviews`, `/create-payment-intent`) alongside standard versioned `/api/v1/*` resources.
+- **Backwards Compatible API**: Preserves all legacy endpoint structures (`/jwt`, `/reviews`, `/create-payment-intent`, `/api/v1/update-profile`) alongside standard versioned `/api/v1/*` resources.
 
 ---
 
@@ -107,6 +110,7 @@ FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY----
 | `GET` | `/api/v1/users/role/:email` | Get user role (`user`, `agent`, `admin`, `fraud`) | Public |
 | `POST` | `/api/v1/users` | Register or upsert user | Public |
 | `PATCH` | `/api/v1/users/role/:id` | Update role (`admin`, `agent`, `fraud`) | Admin |
+| `PATCH` | `/api/v1/users/profile` | Update profile (name, imgUrl, photoURL) | Private |
 | `PATCH` | `/api/v1/username` | Update user display name | Private |
 | `DELETE` | `/api/v1/users/:id` | Delete user record | Admin |
 
