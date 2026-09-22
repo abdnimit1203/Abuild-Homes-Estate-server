@@ -37,6 +37,16 @@ async function getWishlistById(req, res, next) {
 async function createWishlist(req, res, next) {
   try {
     const wishlist = req.body;
+    // Prevent duplicate wishlist entries for same user and property
+    if (wishlist.userEmail && wishlist.propertyID) {
+      const existing = await Wishlist.findOne({
+        userEmail: wishlist.userEmail,
+        propertyID: wishlist.propertyID,
+      }).lean();
+      if (existing) {
+        return res.status(400).send({ message: "Property is already in your wishlist!" });
+      }
+    }
     const result = await Wishlist.create(wishlist);
     res.send({
       acknowledged: true,
