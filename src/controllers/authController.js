@@ -9,7 +9,7 @@ async function createToken(req, res, next) {
     const token = jwt.sign(
       user,
       process.env.ACCESS_TOKEN_SECRET || "default_fallback_secret",
-      { expiresIn: "1h" }
+      { expiresIn: "7d" }
     );
     res.send({ token });
   } catch (err) {

@@ -5,12 +5,38 @@ const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 /**
  * Retrieves payment history, optionally filtered by agent email.
+ * Joins live user data so buyerName is always current.
  */
 async function getPayments(req, res, next) {
   try {
     const agentEmail = req.query.agentEmail;
-    const query = agentEmail ? { agentEmail } : {};
-    const result = await Payment.find(query).lean();
+    const matchStage = agentEmail ? { agentEmail } : {};
+
+    const result = await Payment.aggregate([
+      { $match: matchStage },
+      {
+        $lookup: {
+          from: "users",
+          localField: "buyerEmail",
+          foreignField: "email",
+          as: "_buyerDoc",
+        },
+      },
+      {
+        $addFields: {
+          _liveBuyer: { $arrayElemAt: ["$_buyerDoc", 0] },
+        },
+      },
+      {
+        $addFields: {
+          buyerName: {
+            $ifNull: ["$_liveBuyer.name", { $ifNull: ["$buyerName", "Buyer"] }],
+          },
+        },
+      },
+      { $project: { _buyerDoc: 0, _liveBuyer: 0 } },
+    ]);
+
     res.send(result);
   } catch (err) {
     next(err);
@@ -19,10 +45,11 @@ async function getPayments(req, res, next) {
 
 /**
  * Records a successful payment and marks the associated offer as bought.
+ * buyerName is stripped — resolved live from users collection on read.
  */
 async function createPayment(req, res, next) {
   try {
-    const payments = req.body;
+    const { buyerName, ...payments } = req.body;
     if (payments.soldPrice !== undefined) {
       payments.soldPrice = Number(payments.soldPrice) || 0;
     }

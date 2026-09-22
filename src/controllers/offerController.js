@@ -3,6 +3,7 @@ const Offer = require("../models/Offer");
 
 /**
  * Retrieves offers filtered by propertyID, agentEmail, or buyerEmail.
+ * Joins live user data so buyerName is always current.
  */
 async function getOffers(req, res, next) {
   try {
@@ -10,18 +11,36 @@ async function getOffers(req, res, next) {
     const agentEmail = req.query.agentEmail;
     const buyerEmail = req.query.buyerEmail;
 
-    const query = {};
-    if (id) {
-      query.propertyID = id;
-    }
-    if (agentEmail) {
-      query.agentEmail = agentEmail;
-    }
-    if (buyerEmail) {
-      query.buyerEmail = buyerEmail;
-    }
+    const matchStage = {};
+    if (id) matchStage.propertyID = id;
+    if (agentEmail) matchStage.agentEmail = agentEmail;
+    if (buyerEmail) matchStage.buyerEmail = buyerEmail;
 
-    const result = await Offer.find(query).lean();
+    const result = await Offer.aggregate([
+      { $match: matchStage },
+      {
+        $lookup: {
+          from: "users",
+          localField: "buyerEmail",
+          foreignField: "email",
+          as: "_buyerDoc",
+        },
+      },
+      {
+        $addFields: {
+          _liveBuyer: { $arrayElemAt: ["$_buyerDoc", 0] },
+        },
+      },
+      {
+        $addFields: {
+          buyerName: {
+            $ifNull: ["$_liveBuyer.name", { $ifNull: ["$buyerName", "Buyer"] }],
+          },
+        },
+      },
+      { $project: { _buyerDoc: 0, _liveBuyer: 0 } },
+    ]);
+
     res.send(result);
   } catch (err) {
     next(err);
@@ -29,7 +48,7 @@ async function getOffers(req, res, next) {
 }
 
 /**
- * Retrieves a single offer by ID.
+ * Retrieves a single offer by ID. Joins live buyerName from users collection.
  */
 async function getOfferById(req, res, next) {
   try {
@@ -37,23 +56,47 @@ async function getOfferById(req, res, next) {
     if (!mongoose.isValidObjectId(id)) {
       return res.status(400).send({ message: "Invalid offer ID." });
     }
-    const result = await Offer.findById(id).lean();
-    res.send(result);
+    const results = await Offer.aggregate([
+      { $match: { _id: new mongoose.Types.ObjectId(id) } },
+      {
+        $lookup: {
+          from: "users",
+          localField: "buyerEmail",
+          foreignField: "email",
+          as: "_buyerDoc",
+        },
+      },
+      {
+        $addFields: {
+          _liveBuyer: { $arrayElemAt: ["$_buyerDoc", 0] },
+        },
+      },
+      {
+        $addFields: {
+          buyerName: {
+            $ifNull: ["$_liveBuyer.name", { $ifNull: ["$buyerName", "Buyer"] }],
+          },
+        },
+      },
+      { $project: { _buyerDoc: 0, _liveBuyer: 0 } },
+    ]);
+    res.send(results[0] || null);
   } catch (err) {
     next(err);
   }
 }
 
 /**
- * Creates a new offer on a property.
+ * Creates a new offer on a property. buyerName is stripped —
+ * it will always be resolved live from the users collection on read.
  */
 async function createOffer(req, res, next) {
   try {
-    const offer = req.body;
-    if (offer.offeredAmount !== undefined) {
-      offer.offeredAmount = Number(offer.offeredAmount) || 0;
+    const { buyerName, ...offerData } = req.body;
+    if (offerData.offeredAmount !== undefined) {
+      offerData.offeredAmount = Number(offerData.offeredAmount) || 0;
     }
-    const result = await Offer.create(offer);
+    const result = await Offer.create(offerData);
     res.send({
       acknowledged: true,
       insertedId: result._id,

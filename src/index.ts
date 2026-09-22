@@ -1,7 +1,16 @@
-const express = require("express");
-const cors = require("cors");
-const path = require("path");
-const { connectDB } = require("./config/db");
+import express, { Request, Response, NextFunction } from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import dns from "dns";
+import { connectDB } from "./config/db";
+
+// Load environment variables
+dotenv.config();
+
+try {
+  dns.setServers(["8.8.8.8", "1.1.1.1"]);
+} catch (e) {}
+
 const errorHandler = require("./middlewares/errorHandler");
 const { apiGuard } = require("./middlewares/apiGuard");
 
@@ -20,7 +29,7 @@ const wishlistRoutes = require("./routes/wishlistRoutes");
 const offerRoutes = require("./routes/offerRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 
-let reviewsData = [];
+let reviewsData: any[] = [];
 try {
   reviewsData = require("../reviews.json");
 } catch (e) {
@@ -32,6 +41,9 @@ try {
 }
 
 const app = express();
+app.set("trust proxy", 1);
+
+const PORT = process.env.PORT || 5000;
 
 // Whitelist configuration for CORS
 const allowedOrigins = [
@@ -71,15 +83,22 @@ app.use(express.json());
 app.use(apiGuard);
 
 // Serverless DB connection middleware (caches connection across warm lambdas)
-app.use(async (req, res, next) => {
+app.use(async (req: Request, res: Response, next: NextFunction) => {
   try {
     await connectDB();
     next();
-  } catch (err) {
+  } catch (err: any) {
     console.error("MongoDB connection failed on request:", err.message);
     next();
   }
 });
+
+// Health checks
+const healthHandler = (req: Request, res: Response) => {
+  res.status(200).json({ status: "success", message: "Real estate Abuild Homes server API is running." });
+};
+app.get("/health", healthHandler);
+app.get("/api/health", healthHandler);
 
 // Authentication / JWT
 app.use("/", authRoutes);
@@ -103,15 +122,32 @@ app.patch("/api/v1/rejected-offer", offerController.rejectOffer);
 app.post("/create-payment-intent", paymentController.createPaymentIntent);
 
 // Static / fallback endpoints
-app.get("/reviews", (req, res) => {
+app.get("/reviews", (req: Request, res: Response) => {
   res.send(reviewsData);
 });
 
-app.get("/", (req, res) => {
+app.get("/", (req: Request, res: Response) => {
   res.send("Real estate Abuild Homes server data is here...");
 });
 
 // Centralized error handling
 app.use(errorHandler);
 
+// Start standalone HTTP listener when running locally or in long-running container
+if (process.env.NODE_ENV !== "test" && !process.env.VERCEL) {
+  connectDB()
+    .then(() => {
+      app.listen(PORT, () => {
+        console.log(`Abuild Homes Estates server running on port: ${PORT}`);
+      });
+    })
+    .catch((err: any) => {
+      console.warn("⚠️ Initial DB connection deferred or failed:", err.message);
+      app.listen(PORT, () => {
+        console.log(`Abuild Homes Estates server running on port: ${PORT} (retry mode)`);
+      });
+    });
+}
+
+export default app;
 module.exports = app;
